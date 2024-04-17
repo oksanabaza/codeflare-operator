@@ -1,0 +1,17 @@
+---
+image_build_method: imagebuilder
+platforms:
+  only:
+    - x86_64
+compose:
+  pulp_repos: true
+  packages:
+    - util-linux
+remote_source:
+  repo: ${CI_CODEFLARE_OPERATOR_UPSTREAM_URL}
+  ref: ${CI_CODEFLARE_OPERATOR_UPSTREAM_COMMIT}
+  pkg_managers:
+    - gomod
+  packages:
+    gomod:
+      - path: ./

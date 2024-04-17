@@ -1,0 +1,10 @@
+# https://gating-greenwave.readthedocs.io/en/latest/policies.html
+--- !Policy
+id: openshift-ai-cvp
+product_versions:
+  - odh*
+  - cvp
+decision_contexts:
+  - cvp_default
+rules:
+  - !PassingTestCaseRule {test_case_name: openshift-ai.odh-e2e.e2e}
