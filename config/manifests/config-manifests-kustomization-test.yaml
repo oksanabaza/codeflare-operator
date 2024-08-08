@@ -1,0 +1,1219 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+  name: openshift-operators
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  labels:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+  name: appwrappers.workload.codeflare.dev
+spec:
+  group: workload.codeflare.dev
+  names:
+    kind: AppWrapper
+    listKind: AppWrapperList
+    plural: appwrappers
+    singular: appwrapper
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Status
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="QuotaReserved")].status
+      name: Quota Reserved
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="ResourcesDeployed")].status
+      name: Resources Deployed
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Unhealthy")].status
+      name: Unhealthy
+      type: string
+    name: v1beta2
+    schema:
+      openAPIV3Schema:
+        description: AppWrapper is the Schema for the appwrappers API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: AppWrapperSpec defines the desired state of the AppWrapper
+            properties:
+              components:
+                description: Components lists the components contained in the AppWrapper
+                items:
+                  description: AppWrapperComponent describes a single wrapped Kubernetes
+                    resource
+                  properties:
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        Annotations is an unstructured key value map that may be used to store and retrieve
+                        arbitrary metadata about the Component to customize its treatment by the AppWrapper controller.
+                      type: object
+                    podSetInfos:
+                      description: PodSetInfos assigned to the Component's PodSets
+                        by Kueue
+                      items:
+                        description: AppWrapperPodSetInfo contains the data that Kueue
+                          wants to inject into an admitted PodSpecTemplate
+                        properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            description: Annotations to be added to the PodSpecTemplate
+                            type: object
+                          labels:
+                            additionalProperties:
+                              type: string
+                            description: Labels to be added to the PodSepcTemplate
+                            type: object
+                          nodeSelector:
+                            additionalProperties:
+                              type: string
+                            description: NodeSelectors to be added to the PodSpecTemplate
+                            type: object
+                          tolerations:
+                            description: Tolerations to be added to the PodSpecTemplate
+                            items:
+                              description: |-
+                                The pod this Toleration is attached to tolerates any taint that matches
+                                the triple <key,value,effect> using the matching operator <operator>.
+                              properties:
+                                effect:
+                                  description: |-
+                                    Effect indicates the taint effect to match. Empty means match all taint effects.
+                                    When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                                  type: string
+                                key:
+                                  description: |-
+                                    Key is the taint key that the toleration applies to. Empty means match all taint keys.
+                                    If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                                  type: string
+                                operator:
+                                  description: |-
+                                    Operator represents a key's relationship to the value.
+                                    Valid operators are Exists and Equal. Defaults to Equal.
+                                    Exists is equivalent to wildcard for value, so that a pod can
+                                    tolerate all taints of a particular category.
+                                  type: string
+                                tolerationSeconds:
+                                  description: |-
+                                    TolerationSeconds represents the period of time the toleration (which must be
+                                    of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+                                    it is not set, which means tolerate the taint forever (do not evict). Zero and
+                                    negative values will be treated as 0 (evict immediately) by the system.
+                                  format: int64
+                                  type: integer
+                                value:
+                                  description: |-
+                                    Value is the taint value the toleration matches to.
+                                    If the operator is Exists, the value should be empty, otherwise just a regular string.
+                                  type: string
+                              type: object
+                            type: array
+                        type: object
+                      type: array
+                    podSets:
+                      description: DeclaredPodSets for the Component (optional for
+                        known PodCreating GVKs)
+                      items:
+                        description: AppWrapperPodSet describes an homogeneous set
+                          of pods
+                        properties:
+                          path:
+                            description: Path is the path Component.Template to the
+                              PodTemplateSpec for this PodSet
+                            type: string
+                          replicas:
+                            description: Replicas is the number of pods in this PodSet
+                            format: int32
+                            type: integer
+                        required:
+                        - path
+                        type: object
+                      type: array
+                    template:
+                      description: Template defines the Kubernetes resource for the
+                        Component
+                      type: object
+                      x-kubernetes-embedded-resource: true
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                  - template
+                  type: object
+                type: array
+              suspend:
+                description: Suspend suspends the AppWrapper when set to true
+                type: boolean
+            required:
+            - components
+            type: object
+          status:
+            description: AppWrapperStatus defines the observed state of the appwrapper
+            properties:
+              componentStatus:
+                description: ComponentStatus parallels the Components array in the
+                  Spec and tracks the actually deployed resources
+                items:
+                  description: AppWrapperComponentStatus tracks the status of a single
+                    managed Component
+                  properties:
+                    apiVersion:
+                      description: APIVersion is the APIVersion of the Component
+                      type: string
+                    conditions:
+                      description: |-
+                        Conditions hold the latest available observations of the Component's current state.
+
+
+                        The type of the condition could be:
+
+
+                        - ResourcesDeployed: The component is deployed on the cluster
+                      items:
+                        description: "Condition contains details for one aspect of
+                          the current state of this API Resource.\n---\nThis struct
+                          is intended for direct use as an array at the field path
+                          .status.conditions.  For example,\n\n\n\ttype FooStatus
+                          struct{\n\t    // Represents the observations of a foo's
+                          current state.\n\t    // Known .status.conditions.type are:
+                          \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
+                          +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    //
+                          +listType=map\n\t    // +listMapKey=type\n\t    Conditions
+                          []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\"
+                          patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
+                          \   // other fields\n\t}"
+                        properties:
+                          lastTransitionTime:
+                            description: |-
+                              lastTransitionTime is the last time the condition transitioned from one status to another.
+                              This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                            format: date-time
+                            type: string
+                          message:
+                            description: |-
+                              message is a human readable message indicating details about the transition.
+                              This may be an empty string.
+                            maxLength: 32768
+                            type: string
+                          observedGeneration:
+                            description: |-
+                              observedGeneration represents the .metadata.generation that the condition was set based upon.
+                              For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                              with respect to the current state of the instance.
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          reason:
+                            description: |-
+                              reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                              Producers of specific condition types may define expected values and meanings for this field,
+                              and whether the values are considered a guaranteed API.
+                              The value should be a CamelCase string.
+                              This field may not be empty.
+                            maxLength: 1024
+                            minLength: 1
+                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                            type: string
+                          status:
+                            description: status of the condition, one of True, False,
+                              Unknown.
+                            enum:
+                            - "True"
+                            - "False"
+                            - Unknown
+                            type: string
+                          type:
+                            description: |-
+                              type of condition in CamelCase or in foo.example.com/CamelCase.
+                              ---
+                              Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
+                              useful (see .node.status.conditions), the ability to deconflict is important.
+                              The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                            maxLength: 316
+                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - message
+                        - reason
+                        - status
+                        - type
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
+                    kind:
+                      description: Kind is the Kind of the Component
+                      type: string
+                    name:
+                      description: Name is the name of the Component
+                      type: string
+                    podSets:
+                      description: PodSets is the validated PodSets for the Component
+                        (either from AppWrapperComponent.DeclaredPodSets or inferred
+                        by the controller)
+                      items:
+                        description: AppWrapperPodSet describes an homogeneous set
+                          of pods
+                        properties:
+                          path:
+                            description: Path is the path Component.Template to the
+                              PodTemplateSpec for this PodSet
+                            type: string
+                          replicas:
+                            description: Replicas is the number of pods in this PodSet
+                            format: int32
+                            type: integer
+                        required:
+                        - path
+                        type: object
+                      type: array
+                  required:
+                  - apiVersion
+                  - kind
+                  - name
+                  - podSets
+                  type: object
+                type: array
+              conditions:
+                description: |-
+                  Conditions hold the latest available observations of the AppWrapper current state.
+
+
+                  The type of the condition could be:
+
+
+                  - QuotaReserved: The AppWrapper was admitted by Kueue and has quota allocated to it
+                  - ResourcesDeployed: The contained resources are deployed (or being deployed) on the cluster
+                  - PodsReady: All pods of the contained resources are in the Ready or Succeeded state
+                  - Unhealthy: One or more of the contained resources is unhealthy
+                  - DeletingResources: The contained resources are in the process of being deleted from the cluster
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource.\n---\nThis struct is intended for
+                    direct use as an array at the field path .status.conditions.  For
+                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
+                    observations of a foo's current state.\n\t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
+                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
+                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
+                    \   // other fields\n\t}"
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: |-
+                        type of condition in CamelCase or in foo.example.com/CamelCase.
+                        ---
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
+                        useful (see .node.status.conditions), the ability to deconflict is important.
+                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              phase:
+                description: Phase of the AppWrapper object
+                type: string
+              resettingCount:
+                description: Retries counts the number of times the AppWrapper has
+                  entered the Resetting Phase
+                format: int32
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+  name: codeflare-operator-controller-manager
+  namespace: openshift-operators
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+  name: codeflare-operator-leader-election-role
+  namespace: openshift-operators
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+  name: codeflare-operator-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - dscinitialization.opendatahub.io
+  resources:
+  - dscinitializations
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - kubeflow.org
+  resources:
+  - pytorchjobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kueue.x-k8s.io
+  resources:
+  - resourceflavors
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - kueue.x-k8s.io
+  resources:
+  - workloadpriorityclasses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - kueue.x-k8s.io
+  resources:
+  - workloads
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kueue.x-k8s.io
+  resources:
+  - workloads/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - kueue.x-k8s.io
+  resources:
+  - workloads/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ray.io
+  resources:
+  - rayclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ray.io
+  resources:
+  - rayclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ray.io
+  resources:
+  - rayclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ray.io
+  resources:
+  - rayjobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
+  - routes/custom-host
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - scheduling.k8s.io
+  resources:
+  - priorityclasses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - scheduling.sigs.k8s.io
+  resources:
+  - podgroups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - scheduling.x-k8s.io
+  resources:
+  - podgroups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workload.codeflare.dev
+  resources:
+  - appwrappers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workload.codeflare.dev
+  resources:
+  - appwrappers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - workload.codeflare.dev
+  resources:
+  - appwrappers/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+  name: codeflare-operator-leader-election-rolebinding
+  namespace: openshift-operators
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: codeflare-operator-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: codeflare-operator-controller-manager
+  namespace: openshift-operators
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+  name: codeflare-operator-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: codeflare-operator-manager-role
+subjects:
+- kind: ServiceAccount
+  name: codeflare-operator-controller-manager
+  namespace: openshift-operators
+---
+apiVersion: v1
+data:
+  codeflare-operator-controller-image: quay.io/opendatahub/codeflare-operator:v1.6.0
+  namespace: opendatahub
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+  name: codeflare-operator-stack-config
+  namespace: openshift-operators
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+  name: codeflare-operator-webhook-server-cert
+  namespace: openshift-operators
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+  name: codeflare-operator-manager-metrics
+  namespace: openshift-operators
+spec:
+  ports:
+  - name: metrics
+    port: 8080
+    protocol: TCP
+    targetPort: metrics
+  selector:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+  name: codeflare-operator-webhook-service
+  namespace: openshift-operators
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+  name: codeflare-operator-manager
+  namespace: openshift-operators
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: codeflare-operator
+      app.kubernetes.io/part-of: codeflare
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        app.kubernetes.io/name: codeflare-operator
+        app.kubernetes.io/part-of: codeflare
+    spec:
+      containers:
+      - command:
+        - /manager
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: quay.io/opendatahub/codeflare-operator:v1.6.0
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1Gi
+          requests:
+            cpu: "1"
+            memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: codeflare-operator-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: codeflare-operator-webhook-server-cert
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: |-
+      [{
+        "apiVersion": "workload.codeflare.dev/v1beta1",
+        "kind": "AppWrapper",
+        "metadata": {"name": "0001-aw-generic-deployment-1"},
+        "spec": {
+          "resources": {
+            "GenericItems": [{
+              "replicas": 1,
+              "generictemplate": {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "metadata": {
+                  "name": "0001-aw-generic-deployment-1",
+                  "labels": {"app": "0001-aw-generic-deployment-1"}
+                },
+                "spec": {
+                  "selector": {"matchLabels": {"app": "0001-aw-generic-deployment-1"}},
+                  "replicas": 2,
+                  "template": {
+                    "metadata": {"labels": {"app": "0001-aw-generic-deployment-1"}},
+                    "spec": {
+                      "containers": [{
+                        "name": "0001-aw-generic-deployment-1",
+                        "image": "kicbase/echo-server:1.0",
+                        "ports": [{"containerPort": 80}],
+                        "resources": {
+                          "requests": {"cpu": "100m", "memory": "256Mi"},
+                          "limits": {"cpu": "100m", "memory": "256Mi"}
+                        }
+                      }]
+                    }
+                  }
+                }
+              }
+            }]
+          }
+        }
+      }]
+    capabilities: Basic Install
+    categories: AI/Machine Learning, Big Data
+    operatorframework.io/suggested-namespace: openshift-operators
+    repository: https://github.com/project-codeflare/codeflare-operator
+    support: Community
+  name: codeflare-operator.v0.0.1
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions: {}
+  description: CodeFlare allows you to scale complex pipelines anywhere
+  displayName: CodeFlare Operator
+  icon:
+  - base64data: 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
+    mediatype: image/png
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - Pipelines
+  - Scaling
+  - App
+  - Jobs
+  links:
+  - name: Codeflare Operator
+    url: https://codeflare.dev/
+  maintainers:
+  - email: aasthana@redhat.com
+    name: Anish Asthana
+  - email: kpostlet@redhat.com
+    name: Kevin Postlethwait
+  - email: meyceoz@redhat.com
+    name: Mustafa Eyceoz
+  maturity: alpha
+  provider:
+    name: CodeFlare
+    url: https://github.com/project-codeflare
+  version: 0.0.1
+---
+apiVersion: scorecard.operatorframework.io/v1alpha3
+kind: Configuration
+metadata:
+  name: config
+stages:
+- parallel: true
+  tests:
+  - entrypoint:
+    - scorecard-test
+    - basic-check-spec
+    image: quay.io/operator-framework/scorecard-test:v1.24.1
+    labels:
+      suite: basic
+      test: basic-check-spec-test
+  - entrypoint:
+    - scorecard-test
+    - olm-bundle-validation
+    image: quay.io/operator-framework/scorecard-test:v1.24.1
+    labels:
+      suite: olm
+      test: olm-bundle-validation-test
+  - entrypoint:
+    - scorecard-test
+    - olm-crds-have-validation
+    image: quay.io/operator-framework/scorecard-test:v1.24.1
+    labels:
+      suite: olm
+      test: olm-crds-have-validation-test
+  - entrypoint:
+    - scorecard-test
+    - olm-crds-have-resources
+    image: quay.io/operator-framework/scorecard-test:v1.24.1
+    labels:
+      suite: olm
+      test: olm-crds-have-resources-test
+  - entrypoint:
+    - scorecard-test
+    - olm-spec-descriptors
+    image: quay.io/operator-framework/scorecard-test:v1.24.1
+    labels:
+      suite: olm
+      test: olm-spec-descriptors-test
+  - entrypoint:
+    - scorecard-test
+    - olm-status-descriptors
+    image: quay.io/operator-framework/scorecard-test:v1.24.1
+    labels:
+      suite: olm
+      test: olm-status-descriptors-test
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+  name: codeflare-operator-mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: codeflare-operator-webhook-service
+      namespace: openshift-operators
+      path: /mutate-workload-codeflare-dev-v1beta2-appwrapper
+  failurePolicy: Fail
+  name: mappwrapper.kb.io
+  rules:
+  - apiGroups:
+    - workload.codeflare.dev
+    apiVersions:
+    - v1beta2
+    operations:
+    - CREATE
+    resources:
+    - appwrappers
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: codeflare-operator-webhook-service
+      namespace: openshift-operators
+      path: /mutate-ray-io-v1-raycluster
+  failurePolicy: Fail
+  name: mraycluster.ray.openshift.ai
+  rules:
+  - apiGroups:
+    - ray.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - rayclusters
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/name: codeflare-operator
+    app.kubernetes.io/part-of: codeflare
+  name: codeflare-operator-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: codeflare-operator-webhook-service
+      namespace: openshift-operators
+      path: /validate-workload-codeflare-dev-v1beta2-appwrapper
+  failurePolicy: Fail
+  name: vappwrapper.kb.io
+  rules:
+  - apiGroups:
+    - workload.codeflare.dev
+    apiVersions:
+    - v1beta2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - appwrappers
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: codeflare-operator-webhook-service
+      namespace: openshift-operators
+      path: /validate-ray-io-v1-raycluster
+  failurePolicy: Fail
+  name: vraycluster.ray.openshift.ai
+  rules:
+  - apiGroups:
+    - ray.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - rayclusters
+  sideEffects: None
