@@ -165,3 +165,33 @@ jobs:
           echo "Kueue release with version ${{ github.event.inputs.kueue-version }} does not exist. Please select an existing version."
           exit 1
         fi
+
+  generate-component-metadata:
+    needs: [check-appwrapper-version, check-kuberay-version, check-kueue-version]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Generate component_metadata.yaml
+        run: |
+          mkdir -p config
+          cat <<EOL > config/component_metadata.yaml
+          releases:
+            - name: CodeFlare SDK
+              version: ${{ github.event.inputs.codeflare-sdk-version }}
+              repoUrl: https://github.com/project-codeflare/codeflare-sdk
+            - name: AppWrapper
+              version: ${{ github.event.inputs.appwrapper-version }}
+              repoUrl: https://github.com/project-codeflare/appwrapper
+            - name: KubeRay
+              version: ${{ github.event.inputs.kuberay-version }}
+              repoUrl: https://github.com/ray-project/kuberay
+            - name: Kueue
+              version: ${{ github.event.inputs.kueue-version }}
+              repoUrl: https://github.com/kubernetes-sigs/kueue
+          EOL
+
+      - name: Verify Generated File
+        run: cat config/component_metadata.yaml
